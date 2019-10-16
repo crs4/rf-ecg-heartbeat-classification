@@ -18,9 +18,14 @@ from feature_extractors.modejarguerra_features import compute_my_own_descriptor 
 from feature_extractors.modejarguerra_features import compute_HBF as hbf_features
 from feature_extractors.modejarguerra_features import compute_Uniform_LBP as lbp_features
 from time import process_time 
+import matplotlib.pyplot as plt
 
 # Dataset destination (output path)
 input_dataset_path = '../datasets/mitdb.pickle'
+# input_dataset_path = '../../ecg-analyzer/modelDevelopment/datasets/mitdb.pickle'
+DEBUG = True
+DEBUG_RECORD = '207'
+DEBUG_BEAT = 0
 # Dataset destination (output path)
 output_dataset_path = '../datasets/features.pickle'
 
@@ -31,6 +36,14 @@ signals = data['signals']
 labels = data['labels']
 records = data['records']
 
+beat_counters = [0, 0, 0, 0, 0, 0]
+for i, beats in enumerate(labels):
+    for j, label in enumerate(beats):
+        # beat = BeatType.new_from_symbol(label['beat'])
+        # labels[i][j]['beat'] = beat
+        beat = label['beat']
+        beat_counters[beat.value] += 1
+print(beat_counters)
 timer = process_time()
 def tic():
     global timer
@@ -74,6 +87,8 @@ rr_features = RRFeatures()
 for recordIndex, recordName in enumerate(records):
     resultIndex = 0
     fp_record = 0
+    if DEBUG and recordName != DEBUG_RECORD:
+        continue
     print(f'Processing record {recordName} ({recordIndex} of {len(records)})')
     for labelIndex, label in enumerate(labels[recordIndex]):
         # if label['time'] < 1 or label['time'] > labels[recordIndex][len(labels[recordIndex]) - 1]['time'] - 1:
@@ -91,6 +106,11 @@ for recordIndex, recordName in enumerate(records):
         morph = morph_features(labeledBeatTime, signals[recordIndex])
         morph_time = toc(True)        
         qrsWaveform = get_qrs_waveform(labeledBeatTime, signals[recordIndex], 76)
+        if DEBUG and labelIndex >= DEBUG_BEAT:
+            plt.plot(signals[recordIndex])
+            plt.title(labeledBeat.symbol())
+            plt.show()
+            pass
         wt = wt_features(qrsWaveform)
         wt_time = toc(True)
         hos = hos_features(qrsWaveform)
@@ -102,7 +122,7 @@ for recordIndex, recordName in enumerate(records):
         lbp = lbp_features(qrsWaveform)
         lbp_time = toc(True)
         beat = {
-            'beatType': labeledBeat,
+            'beatType': labeledBeat.value,
             'source': recordName,
             'rr': rr,
             'morph': morph,

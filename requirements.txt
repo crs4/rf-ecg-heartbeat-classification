@@ -1,0 +1,7 @@
+numpy
+matplotlib
+wfdb
+scipy
+sklearn
+pandas
+PyWavelets

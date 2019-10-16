@@ -13,23 +13,23 @@ from sklearn.metrics import classification_report
 from sklearn.metrics import precision_recall_fscore_support
 
 # Dataset source (input path)
-input_dataset_path = "./datasets/ranked_features.pickle"
+input_dataset_path = "../datasets/ranked_features.pickle"
 # Dataset destination (output path)
-output_data_path = "./datasets/heartbeatClassifier.pickle"
+output_data_path = "../datasets/heartbeatClassifier.pickle"
 
 pickle_in = open(input_dataset_path,"rb")
 data = pickle.load(pickle_in)
 pickle_in.close()
 labels = data['labels']
-features = data['ranked_features'][:6]
+features = data['ranked_features'][:,:6]
 sources = np.array(data['sources'])
 
 output_labels = [
-    BeatType.NORMAL.symbol, 
-    BeatType.AURICULAR_PREMATURE_CONTRACTION.symbol,
-    BeatType.PREMATURE_VENTRICULAR_CONTRACTION.symbol,
-    BeatType.UNKNOWN.symbol,
-    BeatType.FUSION.symbol
+    BeatType.NORMAL.symbol(), 
+    BeatType.AURICULAR_PREMATURE_CONTRACTION.symbol(),
+    BeatType.PREMATURE_VENTRICULAR_CONTRACTION.symbol(),
+    BeatType.UNKNOWN.symbol(),
+    BeatType.FUSION.symbol()
     ]
 
 labels_L = labels.tolist()
@@ -110,17 +110,17 @@ print(classification_report(train_set["labels"], train_predictions,
                             target_names=output_labels, digits=4))
 #%%
 print('validating model...')
-test_set['features'] = forest_clf.predict(test_set)#scaler.fit_transform(test_set))
-conf_mx_test = confusion_matrix(test_set['labels'], test_set['features'])
+test_predict = forest_clf.predict(test_set["features"])#scaler.fit_transform(test_set))
+conf_mx_test = confusion_matrix(test_set['labels'], test_predict)
 print('conf_mx_test:')
 print(conf_mx_test)
-acc_test = accuracy_score(test_set['labels'], test_set['features'])
+acc_test = accuracy_score(test_set['labels'], test_predict)
 print('Test accuracy:')
 print(acc_test)
 Evaluation_test = evaluate_classifier(conf_mx_test, output_labels)
 print(Evaluation_test)
 
-print(classification_report(test_set['labels'], test_set['features'], target_names=output_labels, digits=4))
+print(classification_report(test_set['labels'], test_predict, target_names=output_labels, digits=4))
 
 print('DETAILS:')
 # train_pred_counts = count_labels_by_source(train_predictions, train_set['sources'])

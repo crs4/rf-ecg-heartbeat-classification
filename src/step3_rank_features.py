@@ -5,7 +5,8 @@ from inter_patient_division import create_train_test_sets
 from sklearn.feature_selection import mutual_info_classif
 
 # Dataset source (input path)
-input_dataset_path = "/Users/josefranciscosaenzcogollo/crs4/ecg-heartbeat-classification//datasets/features.pickle"
+# input_dataset_path = "../../ecg-analyzer/modelDevelopment/datasets/heartbeat_dataset_all_mitdb.pickle"#"../datasets/features.pickle"
+input_dataset_path = "../datasets/features.pickle"
 # Dataset destination (output path)
 output_dataset_path = "../datasets/ranked_features.pickle"
 
@@ -14,6 +15,21 @@ data = pickle.load(pickle_in)
 pickle_in.close()
 
 beats = data["beats"]
+
+beat_counters = [0, 0, 0, 0, 0, 0]
+for n, b in enumerate(beats):
+    # if b["beatType"] == 3:
+    #     beat_type = 5
+    # elif b["beatType"] == 4:
+    #     beat_type = 3
+    # elif b["beatType"] == 5:
+    #     beat_type = 4
+    # else:
+    #     beat_type = b["beatType"]
+    # beats[n]["beatType"] = beat_type
+    beat_type = b["beatType"]
+    beat_counters[beat_type] += 1
+print(beat_counters)
 
 feature_names = list(beats[0]["rr"].keys())
 feature_names += list(beats[0]["morph"].keys())
@@ -31,7 +47,7 @@ labels = np.empty((len(beats)), dtype=int)
 sources = list(range(len(beats)))
 print("constructing features vector...")
 for beatIndex, beat in enumerate(beats):
-    labels[beatIndex] = beat["beatType"].value
+    labels[beatIndex] = beat["beatType"]
     sources[beatIndex] = beat["source"]
     features = list(beat["rr"].values())
     features += list(beat["morph"].values())
@@ -54,6 +70,9 @@ labels_L = train_labels.tolist()
 N_ind = np.array([k for k, l in enumerate(labels_L) if l == BeatType.NORMAL.value], dtype=int)
 S_ind = np.array([k for k, l in enumerate(labels_L) if l == BeatType.AURICULAR_PREMATURE_CONTRACTION.value], dtype=int)
 V_ind = np.array([k for k, l in enumerate(labels_L) if l == BeatType.PREMATURE_VENTRICULAR_CONTRACTION.value], dtype=int)
+Q_ind = np.array([k for k, l in enumerate(labels_L) if l == BeatType.UNKNOWN.value], dtype=int)
+R_ind = np.array([k for k, l in enumerate(labels_L) if l == BeatType.OTHER.value], dtype=int)
+F_ind = np.array([k for k, l in enumerate(labels_L) if l == BeatType.FUSION.value], dtype=int)
 indixes = np.block([N_ind, S_ind, V_ind])
 labels_SV = train_labels[indixes]
 features_SV = train_features[indixes]

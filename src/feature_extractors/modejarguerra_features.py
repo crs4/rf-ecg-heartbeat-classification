@@ -22,29 +22,23 @@ def compute_wavelet_descriptor(beat, family='db1', level=3):
 
 # Compute the HOS descriptor for a beat
 # Skewness (3 cumulant) and kurtosis (4 cumulant)
-def compute_hos_descriptor(beat, n_intervals=11):
+def compute_hos_descriptor(beat, n_intervals=6):
     lag = len(beat) / n_intervals
-    hos_b = np.zeros(((n_intervals-1) * 3))
+    hos_b = np.zeros(((n_intervals-1) * 2))
     for i in range(0, n_intervals-1):
         pose = (lag * (i+1))
         interval = beat[int(pose - (lag/2)):int(pose + (lag/2))]
 
         # Skewness
-        hos_b[i] = scipy.stats.kstat(interval, 2)# scipy.stats.skew(interval, 0, True)
+        hos_b[i] = scipy.stats.skew(interval, 0, True)
+
         if np.isnan(hos_b[i]):
             hos_b[i] = 0.0
 
-        hos_b[(n_intervals-1) + i] = scipy.stats.kstat(interval, 3)
+        # Kurtosis
+        hos_b[(n_intervals-1) + i] = scipy.stats.kurtosis(interval, 0, False, True)
         if np.isnan(hos_b[(n_intervals-1) + i]):
             hos_b[(n_intervals-1) + i] = 0.0
-
-        hos_b[(n_intervals-1)*2 + i] = scipy.stats.kstat(interval, 4)
-        if np.isnan(hos_b[(n_intervals-1)*2 + i]):
-            hos_b[(n_intervals-1)*2 + i] = 0.0
-
-        # Kurtosis
-        #hos_b[(n_intervals-1) + i] = scipy.stats.kurtosis(interval, 0, False, True)
-    
     return hos_b
 
 
@@ -133,23 +127,14 @@ def compute_my_own_descriptor(beat):
 # 15 hermite coefficients!
 
 
-def compute_HBF(beat_o):
-    L = len(beat_o)
-    x = range(0, L*2)
-    beat = np.zeros(L*2)
-    n = int(L / 2)
-    m = np.mean([beat_o[0], beat_o[L-1]])
-    for y in beat_o:
-        beat[n] = y - m
-        n += 1
+def compute_HBF(beat):
 
     coeffs_hbf = np.zeros(15, dtype=float)
     coeffs_HBF_3 = hermfit(range(0, len(beat)), beat, 3)  # 3, 4, 5, 6?
     coeffs_HBF_4 = hermfit(range(0, len(beat)), beat, 4)
     coeffs_HBF_5 = hermfit(range(0, len(beat)), beat, 5)
     #coeffs_HBF_6 = hermfit(range(0,len(beat)), beat, 6)
-    coeffs_HBF_20 = hermfit(range(0,len(beat)), beat, 20)
 
-    coeffs_hbf = np.concatenate((coeffs_HBF_3, coeffs_HBF_4, coeffs_HBF_5, coeffs_HBF_20))
+    coeffs_hbf = np.concatenate((coeffs_HBF_3, coeffs_HBF_4, coeffs_HBF_5))
 
-    return coeffs_HBF_20[1:]
+    return coeffs_hbf
