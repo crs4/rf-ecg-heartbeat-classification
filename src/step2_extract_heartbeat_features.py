@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 # Dataset destination (output path)
 input_dataset_path = '../datasets/mitdb.pickle'
 # input_dataset_path = '../../ecg-analyzer/modelDevelopment/datasets/mitdb.pickle'
-DEBUG = True
+DEBUG = False
 DEBUG_RECORD = '207'
 DEBUG_BEAT = 0
 # Dataset destination (output path)

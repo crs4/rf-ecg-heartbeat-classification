@@ -56,15 +56,15 @@ for record_name in records:
     header["physical_min"] = (
         header["digital_min"] - record.baseline[channel]
     ) / record.adc_gain[channel]
-    # print(header)
     duration = len(data) / record.fs
+    print(duration)
     # add zeros to the end in order to achieve a duration of an integer number of seconds that facicilatetes resampling
     new_length = int(np.ceil(duration) * record.fs)
     xo = np.zeros(new_length)
     xo[0:len(data)] = data
     fs = 150
     print("resampling signal...")
-    xr = signal.resample(xo, new_length * fs)
+    xr = signal.resample(xo, int(np.ceil(duration) * fs))
     print("reading annotations...")
     rhythmClass = ecgtypes.HeartRhythm.NORMAL
     label = []
