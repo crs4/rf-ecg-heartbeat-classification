@@ -1,3 +1,13 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Extract heartbeat features using fiducial points time and amplitude differences
+
+Created on September 18 2019
+CRS4 - Center for Advanced Studies, Research and Development in Sardinia
+@author: Jose F. Saenz-Cogollo
+"""
+
 from array import array
 import math
 from .common import SignalBuffer
@@ -28,33 +38,8 @@ def zeroCrossPoints(X):
 class ExtractQRS():
     """ QRS detection based on the Pan&Tompkins algorithm """
     def __init__(self):
-        self.sampleCounter = 0
         self.fs = 150
-        self.samplesSinceLastDetection = 0                          # contador de muestras luego del ultimo QRS 
-        self.noiseLevel = 0.002                         # nivel de ruido esperado
-        self.signalLevel = 0.006                      # nivel de seÒal esperado
-        self.localMax = 0                         # valor maximo del pico detectado                    
-        self.missedMax = 0                      # valor maximo del pico omitido
-        self.samplesToLastMissed = 0                      # valor del contador de muestras en el pico omitido
-        self.missedPeaks = 0                     # contador de picos omitidos
-        self.threshold1 = 0.005                  # umbral de deteccion 1
-        self.threshold2 = 0.0025                 # umbral de detecciÛn 2
-        self.peakDetected = False                    # bandera de pico detectado
-        self.qrsMissing = False                    # bandera de ausencia de QRS
-        self.rrBuffer = SignalBuffer(32)              # vector para calculo de ultimos 8 RR
-        self.qrsMaxBuffer = SignalBuffer(32)
-        self.qrsMinBuffer = SignalBuffer(32)
-        self.normalRRBuffer = SignalBuffer(8)
-        self.samplesSinceLastLocalMax = 25                        # numero de muestras antes del punto de deteccion (peaki / 2) donde se encuentrÛ el QRS
-        self.signalBuffer = SignalBuffer(96)             # vector que almacena los ˙ltimos 32 datos de la seÒal filtrada
-        self.lastRSample = 0
-        self.ready4NewPeak = False
-        self.lastMissedQRSData = {}
-        self.processedBuffer = SignalBuffer(64)
-        self.filteredBuffer = SignalBuffer(96)
-        self.starting = True
-        self.lastMaxSlope = 0
-        self.samplesSinceLastNoise = 0
+        self.signalBuffer = SignalBuffer(96)            
         self.pPeakBuffer = SignalBuffer(32)
         self.rPeakBuffer = SignalBuffer(32)
         self.qPeakBuffer = SignalBuffer(32)
@@ -69,32 +54,13 @@ class ExtractQRS():
         self.rqDiffBuffer = SignalBuffer(32)
         self.rsDiffBuffer = SignalBuffer(32)
 
-    def resetCounters(self):
-        self.sampleCounter = 0
-        self.samplesSinceLastDetection = 0
-        self.localMax = 0                         # valor maximo del pico detectado                    
-        self.missedMax = 0                      # valor maximo del pico omitido
-        self.samplesToLastMissed = 0                      # valor del contador de muestras en el pico omitido
-        self.missedPeaks = 0                     # contador de picos omitidos
-        self.peakDetected = False                    # bandera de pico detectado
-        self.qrsMissing = False                    # bandera de ausencia de QRS
-        self.lastRSample = 0
-        self.ready4NewPeak = False
-        self.lastMissedQRSData = {}
         
     def findQRSInSignalBuffer(self):
-        # filtered_signal = self.filteredBuffer.getBuffer()
         signal_mean = self.signalBuffer.mean()
         signal = array('f', [s - signal_mean for s in self.signalBuffer.getBuffer()])
         L = len(signal)
         startIndex = L - 55                 
         endIndex = L - 25
-        # rDelay = L - signalPeakIndex  
-
-        # Calculo del ancho del QRS
-        # signal = filtered_signal
-        # startIndex = signalPeakIndex
-        # endIndex = L - 1
         signalMax = max(signal[startIndex:endIndex])
         sMaxIndex = signal[startIndex:endIndex].index(signalMax) + startIndex
         signalMin = min(signal[startIndex:endIndex])
@@ -128,16 +94,11 @@ class ExtractQRS():
         if signalPeak >= 0:
             rPeak = signalPeak
         lastSample = signalPeak
-        qrsStartReady = False
         halfQrsStartIndex = 0
         quarterQrsStartIndex = 0
         for n in range(signalPeakIndex, startIndex, -1):    
             qrsWaveform[k] = signal[n]
             k -= 1  
-            # if qrsStartReady == True and signal[n] * lastSample <= 0:
-            #     # Found a signal sign change (zero cross) while ready to finish
-            #     qrsStartIndex = n
-            #     break
             if math.fabs(signal[n]) <= math.fabs(signalPeak) / 2 and halfQrsStartIndex == 0:
                 halfQrsStartIndex = k
             if math.fabs(signal[n]) <= math.fabs(signalPeak) / 4 and quarterQrsStartIndex == 0:
@@ -149,9 +110,7 @@ class ExtractQRS():
                     if signal[n-1] < 0:
                         # If negative then it's a Q peak
                         qPeak = signal[n-1]
-                        qIndex = n - 1
-                    # Assume QRS is finishing
-                    qrsStartReady = True
+                        qIndex = n - 1                    
                 elif zeroCrosses == 1 and rPeak == 0:
                     # First peak before a main negative peak (Q or S)
                     if signal[n-1] > 0:
@@ -165,13 +124,10 @@ class ExtractQRS():
                         # Main peak is a Q peak
                         qPeak = signalPeak
                         qIndex = signalPeakIndex
-                        # Assume QRS is finishing
-                        qrsStartReady = True
                 if zeroCrosses == 2:
                     if qPeak == 0 and signal[n-1] < 0:
                         qPeak = signal[n-1]
                         qIndex = n - 1
-                        qrsStartReady = True
                     else:
                         # Found a second positive peak before R or Q Peak
                         qrsStartIndex = n -1
@@ -261,10 +217,6 @@ class ExtractQRS():
         self.rqDiffBuffer.push(rqDiff)
         self.rsDiffBuffer.push(rsDiff)
         return {
-            # 'rDelay': rDelay, 
-            # 'qrsWaveform': qrsWaveform2, 
-            # 'qrsMax': qrsMax, 
-            # 'qrsMin': qrsMin, 
             'QRSw': qrsWidth, 
             'QRSw2': halfQrsWidth,
             'QRSw4': quarterQrsWidth,
@@ -295,7 +247,7 @@ class ExtractQRS():
 
     def __call__(self, beatTime, signal):
         beatSample = int(beatTime * 150)
-        for n in range(beatSample - 128, beatSample + 40):#32
+        for n in range(beatSample - 128, beatSample + 40):
             rawSample = signal[n]
             self.signalBuffer.push(rawSample)
         return self.findQRSInSignalBuffer()

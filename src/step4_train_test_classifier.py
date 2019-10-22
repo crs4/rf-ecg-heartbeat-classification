@@ -1,9 +1,17 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Train and test the Random Forest classifier
+
+Created on September 18 2019
+CRS4 - Center for Advanced Studies, Research and Development in Sardinia
+@author: Jose F. Saenz-Cogollo
+"""
 
 import numpy as np
 import pandas as pd
 import pickle
 from ecgtypes import BeatType
-from inter_patient_division import create_train_test_sets
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_predict
@@ -13,76 +21,62 @@ from sklearn.metrics import classification_report
 from sklearn.metrics import precision_recall_fscore_support
 
 # Dataset source (input path)
-input_dataset_path = "../datasets/ranked_features.pickle"
+dataset_path = "../datasets/"
 # Dataset destination (output path)
 output_data_path = "../datasets/heartbeatClassifier.pickle"
+# Number of ranked features to consider
+number_of_features = 6
+# Number of trees for the Random Forest classifier
+number_of_trees = 40
 
-pickle_in = open(input_dataset_path,"rb")
+pickle_in = open(dataset_path + "train_set_features.pickle","rb")
 data = pickle.load(pickle_in)
 pickle_in.close()
-labels = data['labels']
-features = data['ranked_features'][:,:6]
-sources = np.array(data['sources'])
+train_set_labels = data['labels']
+train_set_features = data['ranked_features'][:,:number_of_features]
+train_set_sources = np.array(data['sources'])
+
+pickle_in = open(dataset_path + "test_set_features.pickle","rb")
+data = pickle.load(pickle_in)
+pickle_in.close()
+test_set_labels = data['labels']
+test_set_features = data['ranked_features'][:,:number_of_features]
+test_set_sources = np.array(data['sources'])
 
 output_labels = [
     BeatType.NORMAL.symbol(), 
     BeatType.AURICULAR_PREMATURE_CONTRACTION.symbol(),
     BeatType.PREMATURE_VENTRICULAR_CONTRACTION.symbol(),
-    BeatType.UNKNOWN.symbol(),
-    BeatType.FUSION.symbol()
+    BeatType.FUSION.symbol(),
+    BeatType.UNKNOWN.symbol()
     ]
-
-labels_L = labels.tolist()
-# # Normalizing normal beat quantity
-N_ind = np.array([k for k, l in enumerate(labels_L) if l == BeatType.NORMAL.value], dtype=int)
-S_ind = np.array([k for k, l in enumerate(labels_L) if l == BeatType.AURICULAR_PREMATURE_CONTRACTION.value], dtype=int)
-V_ind = np.array([k for k, l in enumerate(labels_L) if l == BeatType.PREMATURE_VENTRICULAR_CONTRACTION.value], dtype=int)
-Q_ind = np.array([k for k, l in enumerate(labels_L) if l == BeatType.UNKNOWN.value], dtype=int)
-R_ind = np.array([k for k, l in enumerate(labels_L) if l == BeatType.OTHER.value], dtype=int)
-F_ind = np.array([k for k, l in enumerate(labels_L) if l == BeatType.FUSION.value], dtype=int)
-#import random
-#N_rnd_ind = np.array(random.choices(N_ind, k=cV*2))
-indixes = np.block([N_ind, S_ind, V_ind, Q_ind, F_ind])
-labels = labels[indixes]
-features = features[indixes]
-sources = np.array(sources)[indixes]
-
-print("Obtaining training set...")
-train_set, test_set = create_train_test_sets(features, labels, sources)
-
-train_features = train_set["features"]
-train_set["labels"] = train_set["labels"]
 
 print('scaling data...')
 scaler = StandardScaler()
-train_set_tr = train_set["features"]#scaler.fit_transform(train_set["features"])
+train_set_tr = train_set_features#scaler.fit_transform(train_set_features)
 #%%
 print('training model...')
-forest_clf = RandomForestClassifier(random_state=42, n_estimators=30)
-forest_clf.fit(train_set_tr, train_set["labels"])
+forest_clf = RandomForestClassifier(random_state=42, n_estimators=number_of_trees)
+forest_clf.fit(train_set_tr, train_set_labels)
 print(forest_clf.feature_importances_)
 
 print('testing model...')
 
 def leave_one_out_cv():
-    set_sources = list(set(train_set['sources']))
+    set_sources = list(set(train_set_sources))
     for s in set_sources:
         test_indexes = []
         train_indexes = []
-        for i, ts in enumerate(train_set['sources']):
+        for i, ts in enumerate(train_set_sources):
             if ts == s:
                 test_indexes.append(i)
             else:
                 train_indexes.append(i)
         yield train_indexes, test_indexes
 
-train_predictions = cross_val_predict(forest_clf, train_set_tr, train_set["labels"], cv=leave_one_out_cv())
-conf_mx_train = confusion_matrix(
-    train_set["labels"], train_predictions)
-print('conf_mx_train:')
-print(conf_mx_train)
-acc_train = accuracy_score(train_set["labels"], train_predictions)
-print('Train accuracy:')
+train_predictions = cross_val_predict(forest_clf, train_set_tr, train_set_labels, cv=leave_one_out_cv())
+acc_train = accuracy_score(train_set_labels, train_predictions)
+print(f'Train accuracy with {number_of_features} features, and {number_of_trees} trees:')
 print(acc_train)
 #%%
 print('calculating quality parameters...')
@@ -103,37 +97,33 @@ def evaluate_classifier(conf_mx, outputs):
     
     return pd.DataFrame(Q, columns=outputs, index=qualityMeasures)
 
-
-Evaluation_train = evaluate_classifier(conf_mx_train, output_labels)
-print(Evaluation_train)
-print(classification_report(train_set["labels"], train_predictions,
-                            target_names=output_labels, digits=4))
 #%%
 print('validating model...')
-test_predict = forest_clf.predict(test_set["features"])#scaler.fit_transform(test_set))
-conf_mx_test = confusion_matrix(test_set['labels'], test_predict)
+test_predict = forest_clf.predict(test_set_features)#scaler.fit_transform(test_set))
+conf_mx_test = confusion_matrix(test_set_labels, test_predict)
 print('conf_mx_test:')
 print(conf_mx_test)
-acc_test = accuracy_score(test_set['labels'], test_predict)
-print('Test accuracy:')
+acc_test = accuracy_score(test_set_labels, test_predict)
+print(f'Test accuracy with {number_of_features} features, and {number_of_trees} trees:')
 print(acc_test)
 Evaluation_test = evaluate_classifier(conf_mx_test, output_labels)
+print(f'Evaluation details with {number_of_features} features, and {number_of_trees} trees:')
 print(Evaluation_test)
 
-print(classification_report(test_set['labels'], test_predict, target_names=output_labels, digits=4))
+print(f'Classification report with {number_of_features} features, and {number_of_trees} trees:')
+print(classification_report(test_set_labels, test_predict, target_names=output_labels, digits=4))
 
-print('DETAILS:')
-# train_pred_counts = count_labels_by_source(train_predictions, train_set['sources'])
+# print('Classification details by sources:')
+# train_pred_counts = count_labels_by_source(train_predictions, train_set_sources)
 # test_set['features']_counts = count_labels_by_source(test_set['features'], test_sources)
 # print(train_pred_counts)
 
-# test_set['features']_counts = count_labels_by_source(test_set['labels'], test_sources, test_set['features'])
+# test_set['features']_counts = count_labels_by_source(test_set_labels, test_sources, test_set['features'])
 # print(test_set['features']_counts)
-#%%
 
 #%%
 print('saving model...')
 
 pickle_out = open(output_data_path,"wb")
-pickle.dump({'preprocessor': None, 'model' : forest_clf, 'Evaluation_train'  : Evaluation_train , 'Evaluation_test': Evaluation_test}, pickle_out)
+pickle.dump({'preprocessor': None, 'model' : forest_clf, 'Evaluation_test': Evaluation_test}, pickle_out)
 pickle_out.close()

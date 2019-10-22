@@ -1,11 +1,8 @@
 #!/usr/bin/env python
-
 """
-features_ECG.py
-    
-VARPA, University of Coruna
-Mondejar Guerra, Victor M.
-23 Oct 2017
+Extract heartbeat features according to the work of Mondejar-Guerra et. al (http://www.sciencedirect.com/science/article/pii/S1746809418301976)
+The functions defined here are a modified version of the code avalable on https://github.com/mondejar/ecg-classification/blob/master/python/features_ECG.py
+All modifications to the original code relate only to differences in sampling frequency and format.
 """
 
 import numpy as np

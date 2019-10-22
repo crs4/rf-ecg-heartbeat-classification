@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu May  3 15:09:22 2018
+Extract heatbeat features from ECG signals
 
-@author: Jose F. Saenz"""
+Created on September 18 2019
+CRS4 - Center for Advanced Studies, Research and Development in Sardinia
+@author: Jose F. Saenz-Cogollo
+"""
 
 import numpy as np
 import pandas as pd
@@ -21,35 +24,26 @@ from time import process_time
 import matplotlib.pyplot as plt
 
 # Dataset destination (output path)
-input_dataset_path = '../datasets/mitdb.pickle'
-# input_dataset_path = '../../ecg-analyzer/modelDevelopment/datasets/mitdb.pickle'
+dataset_path = '../datasets/'
+# Debugging options
 DEBUG = False
 DEBUG_RECORD = '207'
 DEBUG_BEAT = 0
 # Dataset destination (output path)
-output_dataset_path = '../datasets/features.pickle'
-
-pickle_in = open(input_dataset_path, "rb")
-data = pickle.load(pickle_in)
-pickle_in.close()
-signals = data['signals']
-labels = data['labels']
-records = data['records']
-
-beat_counters = [0, 0, 0, 0, 0, 0]
-for i, beats in enumerate(labels):
-    for j, label in enumerate(beats):
-        # beat = BeatType.new_from_symbol(label['beat'])
-        # labels[i][j]['beat'] = beat
-        beat = label['beat']
-        beat_counters[beat.value] += 1
-print(beat_counters)
+dataset_path = '../datasets/'
+# Timer for measuring the execution time of feature extractors
 timer = process_time()
 def tic():
+    """
+    Reset timer
+    """
     global timer
     timer = process_time()
 
 def toc(reset=False):
+    """
+    Get elapsed time
+    """
     global timer
     t = process_time() - timer
     if reset:
@@ -57,6 +51,9 @@ def toc(reset=False):
     return t
 
 def get_qrs_waveform(beatTime, signal, window=180):
+    """
+    Extract a segment of signal around the beat time (R spike time)
+    """
     beatSample = int(beatTime * 150)
     qrsWaveform = np.zeros(window)
     k = int(window / 2)
@@ -75,76 +72,81 @@ def get_qrs_waveform(beatTime, signal, window=180):
         k += 1
     return qrsWaveform
 
-beats = []
-missed_beats = 0
-true_beats = 0
-detected_beats = 0
-false_beats = 0
-false_beats_records = []
-missed_labels = []
-morph_features = ExtractQRS()
-rr_features = RRFeatures()
-for recordIndex, recordName in enumerate(records):
-    resultIndex = 0
-    fp_record = 0
-    if DEBUG and recordName != DEBUG_RECORD:
-        continue
-    print(f'Processing record {recordName} ({recordIndex} of {len(records)})')
-    for labelIndex, label in enumerate(labels[recordIndex]):
-        # if label['time'] < 1 or label['time'] > labels[recordIndex][len(labels[recordIndex]) - 1]['time'] - 1:
-        #     continue
-        labeledBeatTime = label['time']
-        labeledBeat = label['beat']
-        # ignore noise and label artifacts
-        if labeledBeat != BeatType.OTHER:
-            true_beats += 1
-        else:
+def extract_beat_features(signals, labels, records):
+    """
+    Extract features from all labeled heartbeats in a set of records
+    """
+    beats = []
+    morph_features = ExtractQRS()
+    rr_features = RRFeatures()
+    for recordIndex, recordName in enumerate(records):
+        if DEBUG and recordName != DEBUG_RECORD:
             continue
-        tic()
-        rr = rr_features(labels[recordIndex], labelIndex)
-        rr_time = toc(True)
-        morph = morph_features(labeledBeatTime, signals[recordIndex])
-        morph_time = toc(True)        
-        qrsWaveform = get_qrs_waveform(labeledBeatTime, signals[recordIndex], 76)
-        if DEBUG and labelIndex >= DEBUG_BEAT:
-            plt.plot(signals[recordIndex])
-            plt.title(labeledBeat.symbol())
-            plt.show()
-            pass
-        wt = wt_features(qrsWaveform)
-        wt_time = toc(True)
-        hos = hos_features(qrsWaveform)
-        hos_time = toc(True)
-        mg = mg_features(qrsWaveform)
-        mg_time = toc(True)
-        hbf = hbf_features(qrsWaveform)
-        hbf_time = toc(True)
-        lbp = lbp_features(qrsWaveform)
-        lbp_time = toc(True)
-        beat = {
-            'beatType': labeledBeat.value,
-            'source': recordName,
-            'rr': rr,
-            'morph': morph,
-            'wt': wt,
-            'hos': hos,
-            'rr_time': rr_time,
-            'morph_time': morph_time,
-            'wt_time': wt_time,
-            'hos_time': hos_time,
-            'mg': mg,
-            'mg_time': mg_time,
-            'hbf': hbf,
-            'hbf_time': hbf_time,
-            'lbp': lbp,
-            'lbp_time': lbp_time
-        }
-        beats.append(beat)
-        detected_beats += 1
+        print(f'Processing record {recordName} ({recordIndex} of {len(records)})')
+        for labelIndex, label in enumerate(labels[recordIndex]):
+            labeledBeatTime = label['time']
+            labeledBeat = label['beat']
+            # ignore noise and label artifacts
+            if labeledBeat == BeatType.OTHER:
+                continue
+            tic()
+            rr = rr_features(labels[recordIndex], labelIndex)
+            rr_time = toc(True)
+            morph = morph_features(labeledBeatTime, signals[recordIndex])
+            morph_time = toc(True)        
+            qrsWaveform = get_qrs_waveform(labeledBeatTime, signals[recordIndex], 76)
+            if DEBUG and labelIndex >= DEBUG_BEAT:
+                plt.plot(signals[recordIndex])
+                plt.title(labeledBeat.symbol())
+                plt.show()
+                pass
+            wt = wt_features(qrsWaveform)
+            wt_time = toc(True)
+            hos = hos_features(qrsWaveform)
+            hos_time = toc(True)
+            mg = mg_features(qrsWaveform)
+            mg_time = toc(True)
+            hbf = hbf_features(qrsWaveform)
+            hbf_time = toc(True)
+            lbp = lbp_features(qrsWaveform)
+            lbp_time = toc(True)
+            beat = {
+                'beatType': labeledBeat,
+                'source': recordName,
+                'rr': rr,
+                'morph': morph,
+                'wt': wt,
+                'hos': hos,
+                'rr_time': rr_time,
+                'morph_time': morph_time,
+                'wt_time': wt_time,
+                'hos_time': hos_time,
+                'mg': mg,
+                'mg_time': mg_time,
+                'hbf': hbf,
+                'hbf_time': hbf_time,
+                'lbp': lbp,
+                'lbp_time': lbp_time
+            }
+            beats.append(beat)
+    return beats
 
+print('Extracting train set heartbeats features...')
+pickle_in = open(dataset_path + 'train_set_signals.pickle', "rb")
+data = pickle.load(pickle_in)
+pickle_in.close()
+beats = extract_beat_features(data['signals'], data['labels'], data['records'])
+print('saving train_set file...')
+pickle_out = open(dataset_path + 'train_set_beats.pickle', "wb")
+pickle.dump({'beats': beats}, pickle_out)
+pickle_out.close()
 
-print('True beats: ' + str(true_beats))
-print('saving dataset file...')
-pickle_out = open(output_dataset_path, "wb")
+print('Extracting test set heartbeats features...')
+pickle_in = open(dataset_path + 'test_set_signals.pickle', "rb")
+data = pickle.load(pickle_in)
+pickle_in.close()
+beats = extract_beat_features(data['signals'], data['labels'], data['records'])
+print('saving test_set file...')
+pickle_out = open(dataset_path + 'test_set_beats.pickle', "wb")
 pickle.dump({'beats': beats}, pickle_out)
 pickle_out.close()

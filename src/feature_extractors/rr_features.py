@@ -1,10 +1,20 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Extract R-R interval related features
+
+Created on September 18 2019
+CRS4 - Center for Advanced Studies, Research and Development in Sardinia
+@author: Jose F. Saenz-Cogollo
+"""
+
 from .common import SignalBuffer
 from .common import safe_normalizer
 import statistics as stats
 
 
 class RRFeatures():
-    """ Caculates fetures from RR intervals """
+    """ Caculates features from RR intervals """
 
     def __init__(self):
         self.rrBuffer = SignalBuffer(32)
